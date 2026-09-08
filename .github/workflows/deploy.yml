@@ -10,13 +10,16 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     name: Deploy
+
     steps:
       - uses: actions/checkout@v7
+
       - name: Setup node
         uses: actions/setup-node@v7
         with:
           node-version: '22.x'
           registry-url: 'https://registry.npmjs.org'
+
       - name: Setup R2-Explorer
         env:
           R2EXPLORER_WORKER_NAME: ${{ vars.R2EXPLORER_WORKER_NAME }}
@@ -25,11 +28,24 @@ jobs:
           R2EXPLORER_DOMAIN: ${{ vars.R2EXPLORER_DOMAIN }}
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
         run: node packages/github-action/prepareDeploy.js
-      - name: Get latest version
-        run: cd packages/github-action && npm install && npm install --save r2-explorer@latest
+
+      - name: Install R2-Explorer and Wrangler
+        working-directory: packages/github-action
+        run: |
+          npm install
+          npm install --save r2-explorer@latest
+          npx --no-install wrangler --version
+
+      - name: Verify Cloudflare authentication
+        working-directory: packages/github-action
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --no-install wrangler whoami
+
       - name: Deploy
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CF_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: "packages/github-action"
+        working-directory: packages/github-action
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --no-install wrangler deploy --config wrangler.toml
